@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        .week-item {
+            display: inline-block;
+            width: 80px;
+            height: 40px;
+            line-height: 40px;
+            border: 1px solid sandybrown;
+            text-align: center;
+        }
+
+        .date-item {
+            display: inline-block;
+            width: 80px;
+            min-height: 60px;
+            border: 1px solid beige;
+            text-align: center;
+        }
+
+        .date-item.disable {
+            background-color: rgba(0, 0, 0, .4);
+        }
+
+        .date-item p {
+            margin: 0;
+        }
+
+        html,
+        body {
+            position: relative;
+            height: 100%;
+        }
+
+        body {
+            background: #eee;
+            font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+
+        .swiper-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .swiper-slide {
+            text-align: center;
+            font-size: 18px;
+            background: #fff;
+
+            /* Center slide text vertically */
+            display: -webkit-box;
+            display: -ms-flexbox;
+            display: -webkit-flex;
+            display: flex;
+            -webkit-box-pack: center;
+            -ms-flex-pack: center;
+            -webkit-justify-content: center;
+            justify-content: center;
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            -webkit-align-items: center;
+            align-items: center;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css">
+    <script src="./jquery-1.8.3.min.js"> </script>
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"> </script>
+    <script src="./lunarCalendar.js"></script>
+</head>
+
+<body>
+    <button>本月</button>
+    <button>上个月</button>
+    <button>下个月</button>
+    <div class="swiper-container">
+        <div class="swiper-wrapper">
+            <!-- <div class="swiper-slide"> -->
+            <!-- <div class="wrapper"> -->
+            <!-- <div class="year-line">
+                        <button id="preMonth" class="year-prev">上一月</button>
+                        <button id="nowYear" class="year-now"></button>
+                        <button id="nowMonth"></button>
+                        <button id="nowDate"></button>
+                        <button id="nextMonth" class="year-next">下一月</button>
+                    </div> -->
+            <!-- <div id="weekLine" class="week-line"></div>
+                    <div id="dateWrap" class="date-wrap"></div> -->
+            <!-- </div> -->
+            <!-- </div> -->
+        </div>
+    </div>
+</body>
+<script>
+    let res = [] // 轮播数据
+    let nowDate = new Date();
+    let year = nowDate.getFullYear(); // 年
+    let month = nowDate.getMonth(); //月
+    let day = nowDate.getDate(); //日
+    let type = "default"; //类型
+    // 工具方法 - start
+    // 1.为了获得每个月的日期有多少，我们需要判断 平年闰年[四年一闰，百年不闰，四百年再闰]
+    const isLeapYear = (year) => {
+        return (year % 400 === 0) || (year % 100 !== 0 && year % 4 === 0);
+    };
+
+
+    // 2.获得每个月的日期有多少，注意 month - [0-11]
+    const getMonthCount = (year, month, type) => {
+        let arr = [
+            31, null, 31, 30,
+            31, 30, 31, 31,
+            30, 31, 30, 31
+        ];
+        let count = arr[month] || (isLeapYear(year) ? 29 : 28);
+        return Array.from(new Array(count), (item, value) => {
+            return {
+                day: value + 1,
+                year,
+                month: month + 1,
+                type
+            }
+        });
+    };
+
+
+    // 3.获得某年某月的 1号 是星期几，这里要注意的是 JS 的 API-getDay() 是从 [日-六](0-6)，返回 number
+    const getWeekday = (year, month) => {
+        let date = new Date(year, month, 1);
+        return date.getDay();
+    };
+
+
+    // 4.获得上个月的天数
+    const getPreMonthCount = (year, month) => {
+        if (month === 0) {
+            return getMonthCount(year - 1, 11, "pre");
+        } else {
+            return getMonthCount(year, month - 1, "pre");
+        }
+    };
+
+
+    // 5.获得下个月的天数
+    const getNextMonthCount = (year, month) => {
+        if (month === 11) {
+            return getMonthCount(year + 1, 0, "next");
+        } else {
+            return getMonthCount(year, month + 1, "next");
+        }
+    };
+
+
+    // 生成周方法
+    function DomWeekStr() {
+        let weekStr = '日一二三四五六';
+        weekArr = weekStr.split('').map(item => '星期' + item);
+
+        let weekDomStr = '<div id="weekLine" class="week-line">';
+        weekArr.forEach(item => {
+            weekDomStr += `<div class="week-item">${item}</div>`
+        });
+        weekDomStr += `</div>`
+        return weekDomStr
+    }
+
+
+    // 这里获得我们第一次的 数据 数组
+    const updateCalendar = (year, month, day, type) => {
+        if (typeof year === 'undefined' && typeof month === 'undefined' && typeof day === 'undefined') {
+            let nowDate = new Date();
+            year = nowDate.getFullYear(); // 年
+            month = nowDate.getMonth(); //月
+            day = nowDate.getDate(); //日
+            type = "default"; //类型
+        }
+
+        // 更新一下顶部的年月显示
+        // document.getElementById('nowYear').innerHTML = year;
+        // document.getElementById('nowMonth').innerHTML = month + 1;
+        // document.getElementById('nowDate').innerHTML = day;
+
+
+        // 生成日历数据，上个月剩下的的 x 天 + 当月的 28（平年的2月）或者29（闰年的2月）或者30或者31天 + 下个月的 y 天 = 42
+        let currentMonth = getMonthCount(year, month, 'default'); //本月
+        let preMonth = getPreMonthCount(year, month, "pre"); //上个月
+        let nextMonth = getNextMonthCount(year, month, "next"); //下个月
+        let whereMonday = getWeekday(year, month); // 本周
+        if (whereMonday === 0) {
+            whereMonday = 7
+        }
+        // 感谢网友 luoyiming 的测试（哈哈！谢谢！）：这里当 whereMonday 为 0 的时候会截取上月的所有数据
+        let preArr = preMonth.slice(-1 * whereMonday)
+        let nextArr = nextMonth.slice(0, 42 - currentMonth.length - whereMonday);
+        let str = strHtml([...preArr, ...currentMonth, ...nextArr])
+        str.replace(/^\"|\"$/g, "")
+        // 本月类型判断
+        if (type === "pre") {
+            res.unshift([...preArr, ...currentMonth, ...nextArr]);
+            $('.swiper-wrapper').prepend(`
+            <div class="swiper-slide" id="swiper_year_${year}_${month+1}">
+                <div class="wrapper">
+                    <div id="weekLine" class="week-line">
+                        ${DomWeekStr()}
+                    </div>
+                    <div id="dateWrap" class="date-wrap">
+                        ${str}
+                    </div>
+                </div>
+            </div>
+            `)
+        } else if (type === "next") {
+            // 下个月
+            res.push([...preArr, ...currentMonth, ...nextArr]);
+            $('.swiper-wrapper').append(`
+            <div class="swiper-slide" id="swiper_year_${year}_${month+1}">
+                <div class="wrapper">
+                    <div id="weekLine" class="week-line">
+                        ${DomWeekStr()}
+                    </div>
+                    <div id="dateWrap" class="date-wrap">
+                        ${str}
+                    </div>
+                </div>
+            </div>
+            `)
+        } else {
+            // 本月
+            res = [
+                [...preArr, ...currentMonth, ...nextArr]
+            ];
+            $('.swiper-wrapper').append(`
+            <div class="swiper-slide" id="swiper_year_${year}_${month+1}">
+                <div class="wrapper">
+                    <div id="weekLine" class="week-line">
+                        ${DomWeekStr()}
+                    </div>
+                    <div id="dateWrap" class="date-wrap">
+                        ${str}
+                    </div>
+                </div>
+            </div>
+            `)
+        }
+
+
+    };
+
+
+
+    updateCalendar(); // 本月
+    // 上个月
+    if (month === 0) {
+        updateCalendar(year - 1, 11, day, 'pre');
+    } else {
+        updateCalendar(year, month - 1, day, 'pre')
+    }
+
+    // 下个月
+    if (month === 11) {
+        updateCalendar(year + 1, 0, day, "next");
+    } else {
+        updateCalendar(year, month + 1, day, "next");
+    }
+
+    // 封装插入标签
+    function strHtml(data) {
+        let JsonData = data
+        let str = '';
+        for (let i = 0; i < 6; i++) {
+            str += '<div class="date-line">';
+            for (let j = 0; j < 7; j++) {
+                str += `<div class='date-item ${JsonData[0].type === 'default'?'':'disable' }'>
+                            <p>${JsonData[0].month}</p>
+                            <p>${JsonData[0].day}</p>
+                            <p>${calendar.solar2lunar(JsonData[0].year,JsonData[0].month,JsonData[0].day).IDayCn}</p>
+                        </div>`;
+                JsonData.shift()
+                if (j === 6) {
+                    str += '</div>';
+                }
+            }
+        }
+        return str
+    }
+
+
+
+
+
+
+
+    // // 添加上一月，下一月事件
+    // let oPreButton = document.getElementById('preMonth');
+    // let oNextButton = document.getElementById('nextMonth');
+    // oPreButton.addEventListener('click', function () {
+    //     let currentYear = +document.getElementById('nowYear').textContent;
+    //     let currentMonth = +document.getElementById('nowMonth').textContent - 1;
+    //     let currentDate = +document.getElementById('nowDate').textContent;
+    //     if (currentMonth === 0) {
+    //         updateCalendar(currentYear - 1, 11, currentDate, 'pre');
+    //     } else {
+    //         updateCalendar(currentYear, currentMonth - 1, currentDate, 'pre');
+    //     }
+    // });
+    // oNextButton.addEventListener('click', function () {
+    //     let currentYear = +document.getElementById('nowYear').textContent;
+    //     let currentMonth = +document.getElementById('nowMonth').textContent - 1;
+    //     let currentDate = +document.getElementById('nowDate').textContent;
+    //     if (currentMonth === 11) {
+    //         updateCalendar(currentYear + 1, 0, currentDate, "next");
+    //     } else {
+    //         updateCalendar(currentYear, currentMonth + 1, currentDate, "next");
+    //     }
+    // });
+</script>
+
+</html>
